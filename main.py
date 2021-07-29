@@ -1,6 +1,7 @@
 import sys
 
 from influxdb_client import InfluxDBClient, WriteOptions
+from loguru import logger
 
 # future settings file
 influxdb_src_url = "http://localhost:8086"

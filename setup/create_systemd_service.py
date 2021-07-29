@@ -5,11 +5,9 @@ path = os.getcwd()
 
 service = f"""[Unit]
 Description=Simulator
-StartLimitIntervalSec=120
-StartLimitBurst=5
 [Service]
 Restart=on-failure
-RestartSec=5s
+RestartSec=30s
 Type=simple
 User={getpass.getuser()}
 Group={getpass.getuser()}
