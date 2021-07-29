@@ -1,0 +1,23 @@
+# после изменения насроек, в консоли:
+# sudo systemctl restart inosatiot_resources_sim.service
+
+influxdb:
+  url: http://localhost:8086
+  org: __org__
+  token: __token__
+  bucket: __bucket__
+
+electricity:
+  - label: counter1
+    p:
+      base: 100
+      var: 10
+      delay: 100
+    q:
+      base: 10
+      var: 2
+      delay: 100
+
+water:
+  - water1
+  - water2
