@@ -19,8 +19,9 @@ def query_count(client: InfluxDBClient, bucket: str, measurement: str, start: da
         query = f"""
             from(bucket: "{bucket}")
               |> range(start: {start.isoformat()}, stop: {stop.isoformat()})
-              |> group(columns: ["_start", "_stop",])
               |> count()
+              |> group(columns: ["_start", "_stop",])
+              |> sum()
               |> yield()
         """
     else:
@@ -28,8 +29,9 @@ def query_count(client: InfluxDBClient, bucket: str, measurement: str, start: da
             from(bucket: "{bucket}")
               |> range(start: {start.isoformat()}, stop: {stop.isoformat()})
               |> filter(fn: (r) => r["_measurement"] == "{measurement}")
-              |> group(columns: ["_start", "_stop",])
               |> count()
+              |> group(columns: ["_start", "_stop",])
+              |> sum()
               |> yield()
         """
     df = client.query_api().query_data_frame(query)
