@@ -10,7 +10,7 @@
         $ git clone https://github.com/Konstantin-Dudersky/inosatiot_influxdb_mirror.git
         $ cd inosatiot_influxdb_mirror
 
-2. Создать файл с настройками config_inosatiot_resources_sim.yaml. Шаблон находится в setup/inosatiot_cfg.json_template.
+2. Создать файл с настройками config_inosatiot_influxdb_mirror.yaml. Шаблон находится в setup/config_example.yaml
        
         $ cp setup/config_example.yaml ../config_inosatiot_influxdb_mirror.yaml
 
@@ -30,15 +30,15 @@
     
 4. После установки можно запустить на выполнение через systemd
    
-        $ sudo systemctl start config_inosatiot_resources_server.service  // запустить
-        $ sudo systemctl stop config_inosatiot_resources_server.service  // остановить
-        $ sudo systemctl restart config_inosatiot_resources_server.service  // перезапустить
-        $ sudo systemctl status config_inosatiot_resources_server.service  // просмотреть статус
+        $ sudo systemctl start inosatiot_influxdb_mirror.service  // запустить
+        $ sudo systemctl stop inosatiot_influxdb_mirror.service  // остановить
+        $ sudo systemctl restart inosatiot_influxdb_mirror.service  // перезапустить
+        $ sudo systemctl status inosatiot_influxdb_mirror.service  // просмотреть статус
 
 # Обновить проект
 - Синхронизировать проект с github (локальные изменения теряются)
    
-        $ sudo systemctl stop inosatiot_resources_server.service
+        $ sudo systemctl stop inosatiot_influxdb_mirror.service
         $ cd ~/inosatiot/inosatiot_influxdb_mirror/
         $ git fetch origin && git reset --hard origin/master && git clean -f -d
         $ chmod +x setup/setup.sh && setup/setup.sh

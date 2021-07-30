@@ -1,8 +1,10 @@
 import sys
+import time
 from datetime import datetime, timedelta
 
 import enlighten
 import pandas as pd
+import schedule
 import yaml
 from influxdb_client import InfluxDBClient, WriteOptions
 from loguru import logger
@@ -38,7 +40,10 @@ def query_count(client: InfluxDBClient, bucket: str, measurement: str, start: da
         return df.loc[0, '_value']
 
 
-def mirror(start: datetime, stop: datetime, bsize: int = 10000):
+def mirror(period: timedelta, bsize: int = 10000):
+    stop = datetime.now().astimezone()
+    start = stop - period
+
     # read settings
     with open('../config_inosatiot_influxdb_mirror.yaml') as stream:
         config = yaml.safe_load(stream)
@@ -198,9 +203,10 @@ def mirror(start: datetime, stop: datetime, bsize: int = 10000):
 
 
 if __name__ == '__main__':
-    stop_mirror = datetime.now().astimezone()
-    start_mirror = stop_mirror - timedelta(days=10)
-    mirror(start_mirror, stop_mirror, 10000)
+    schedule.every(10).minutes.at(":00").do(mirror, period=timedelta(hours=2), bsize=10000)
+    schedule.every(1).hours.at(":00").do(mirror, period=timedelta(days=2), bsize=10000)
+    schedule.every(1).days.at(":00").do(mirror, period=timedelta(days=60), bsize=10000)
 
-# TODO systemd service
-# TODO schedule
+    while True:
+        schedule.run_pending()
+        time.sleep(1)

@@ -20,16 +20,16 @@ python3.9 -m venv venv
 source venv/bin/activate
 python3.9 -m pip install -r setup/requirements.txt
 
-#echo
-#echo "-----> Create systemd service:"
-#python3.9 setup/create_systemd_service.py
-#sudo mv setup/inosatiot_resources_sim.service /etc/systemd/system
-#sudo systemctl daemon-reload
-#sudo systemctl enable inosatiot_resources_sim.service
+echo
+echo "-----> Create systemd service:"
+python3.9 setup/create_systemd_service.py
+sudo mv setup/inosatiot_influxdb_mirror.service /etc/systemd/system
+sudo systemctl daemon-reload
+sudo systemctl enable inosatiot_influxdb_mirror.service
 
-#echo
-#echo "-----> Start:"
-#sudo systemctl start inosatiot_resources_sim.service
+echo
+echo "-----> Start:"
+sudo systemctl start inosatiot_influxdb_mirror.service
 
 echo
 echo "-----> Finish!"

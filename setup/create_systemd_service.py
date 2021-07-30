@@ -4,7 +4,7 @@ import os
 path = os.getcwd()
 
 service = f"""[Unit]
-Description=Simulator
+Description=Mirror influxdb data
 [Service]
 Restart=on-failure
 RestartSec=30s
@@ -13,11 +13,11 @@ User={getpass.getuser()}
 Group={getpass.getuser()}
 EnvironmentFile=/etc/environment
 WorkingDirectory={path}
-ExecStart={path}/venv/bin/python3 {path}/main.py --mode rt
+ExecStart={path}/venv/bin/python3 {path}/main.py
 [Install]
 WantedBy=multi-user.target"""
 
-f = open("setup/inosatiot_resources_sim.service", "w")
+f = open("setup/inosatiot_influxdb_mirror.service", "w")
 f.write(service)
 f.close()
 
