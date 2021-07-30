@@ -164,7 +164,7 @@ def mirror(start: datetime, stop: datetime, bsize: int = 10000):
 
                     logger.debug(f'loaded dataframe: {len(df_list)}')
 
-                    with client_src.write_api(write_options=WriteOptions(
+                    with client_dst.write_api(write_options=WriteOptions(
                             batch_size=1000,
                             flush_interval=1000,
                             jitter_interval=0,
