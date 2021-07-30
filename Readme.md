@@ -41,7 +41,7 @@
 - Синхронизировать проект с github (локальные изменения теряются)
    
         $ sudo systemctl stop inosatiot_resources_server.service
-        $ cd ~/inosatiot/inosatiot_resources_server/
+        $ cd ~/inosatiot/inosatiot_influxdb_mirror/
         $ git fetch origin && git reset --hard origin/master && git clean -f -d
         $ chmod +x setup/setup.sh && setup/setup.sh
 

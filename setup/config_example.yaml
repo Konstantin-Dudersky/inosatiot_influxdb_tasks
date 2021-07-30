@@ -1,23 +1,22 @@
 # после изменения насроек, в консоли:
-# sudo systemctl restart inosatiot_resources_sim.service
+# sudo systemctl restart inosatiot_influxdb_mirror.service
 
-influxdb:
+# источник, откдуда брать данные
+influxdb_src:
   url: http://localhost:8086
-  org: __org__
-  token: __token__
-  bucket: __bucket__
+  org: _org_
+  token: _token_
 
-electricity:
-  - label: counter1
-    p:
-      base: 100
-      var: 10
-      delay: 100
-    q:
-      base: 10
-      var: 2
-      delay: 100
+# цель, куда записывать данные (можно несколько)
+influxdb_dst:
+  - url: http://192.168.0.1:8086
+    org: _org_
+    token: _token_
+  - url: http://192.168.0.2:8086
+    org: _org_
+    token: _token_
 
-water:
-  - water1
-  - water2
+# перечень корзин для зеркалирования
+buckets:
+  - bucket1
+  - bucket2
