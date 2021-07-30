@@ -203,13 +203,17 @@ def mirror(period: timedelta, bsize: int = 10000):
                                                     data_frame_measurement_name=meas,
                                                     data_frame_tag_columns=tags)
 
+            logger.success(f"mirror bucket {bucket} to host {influxdb_dst['url']} completed")
+
 
 if __name__ == '__main__':
-    schedule.every(10).minutes.do(mirror, period=timedelta(hours=2), bsize=10000)
-    schedule.every(1).hours.at(':00').do(mirror, period=timedelta(days=2), bsize=10000)
-    schedule.every(1).days.at('00:05').do(mirror, period=timedelta(days=60), bsize=10000)
+    schedule.every(10).minutes.do(mirror, period=timedelta(minutes=20), bsize=1000)
+    schedule.every(1).hours.at(':00').do(mirror, period=timedelta(days=2), bsize=1000)
+    schedule.every(1).days.at('00:05').do(mirror, period=timedelta(days=60), bsize=1000)
 
     while True:
-        schedule.run_all(delay_seconds=60)
+        # schedule.run_all(delay_seconds=60)
         schedule.run_pending()
         time.sleep(1)
+
+# TODO - предусмотреть возможость запуска из командной строки для ручной синхронизации заданного промежутка времени
