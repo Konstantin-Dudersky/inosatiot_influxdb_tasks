@@ -201,3 +201,6 @@ if __name__ == '__main__':
     stop_mirror = datetime.now().astimezone()
     start_mirror = stop_mirror - timedelta(days=10)
     mirror(start_mirror, stop_mirror, 10000)
+
+# TODO systemd service
+# TODO schedule
