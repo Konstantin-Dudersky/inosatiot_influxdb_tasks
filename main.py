@@ -125,7 +125,11 @@ def mirror(period: timedelta, bsize: int = 10000):
                     stop=stop,
                 )
 
-                dt = pd.date_range(start=start, end=stop, periods=int(count_src_meas / bsize))
+                periods = int(count_src_meas / bsize)
+                periods = 1 if periods < 1 else periods
+                logger.debug(f"divide on periods: {periods}")
+
+                dt = pd.date_range(start=start, end=stop, periods=periods)
 
                 for i in range(len(dt) - 1):
                     start_batch = dt[i]
