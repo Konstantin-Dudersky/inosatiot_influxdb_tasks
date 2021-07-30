@@ -203,9 +203,9 @@ def mirror(period: timedelta, bsize: int = 10000):
 
 
 if __name__ == '__main__':
-    schedule.every(10).minutes.at(":00").do(mirror, period=timedelta(hours=2), bsize=10000)
-    schedule.every(1).hours.at(":00").do(mirror, period=timedelta(days=2), bsize=10000)
-    schedule.every(1).days.at("00:00").do(mirror, period=timedelta(days=60), bsize=10000)
+    schedule.every(10).minutes.do(mirror, period=timedelta(hours=2), bsize=10000)
+    schedule.every(1).hours.at(':00').do(mirror, period=timedelta(days=2), bsize=10000)
+    schedule.every(1).days.at('00:05').do(mirror, period=timedelta(days=60), bsize=10000)
 
     while True:
         schedule.run_pending()
