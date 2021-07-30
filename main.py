@@ -210,5 +210,6 @@ if __name__ == '__main__':
     schedule.every(1).days.at('00:05').do(mirror, period=timedelta(days=60), bsize=10000)
 
     while True:
+        schedule.run_all(delay_seconds=60)
         schedule.run_pending()
         time.sleep(1)
