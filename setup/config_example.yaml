@@ -1,22 +1,27 @@
 # после изменения насроек, в консоли:
 # sudo systemctl restart inosatiot_influxdb_mirror.service
 
-# источник, откдуда брать данные
-influxdb_src:
-  url: http://localhost:8086
-  org: _org_
-  token: _token_
-
-# цель, куда записывать данные (можно несколько)
-influxdb_dst:
-  - url: http://192.168.0.1:8086
+hosts:
+  - &src
+    url: http://localhost:8086
     org: _org_
     token: _token_
-  - url: http://192.168.0.2:8086
+  - &dst
+    url: http://192.168.100.74:8086
     org: _org_
     token: _token_
 
-# перечень корзин для зеркалирования
-buckets:
-  - bucket1
-  - bucket2
+
+mirroring:
+  - src_host: *src
+    src_bucket: inosatiot_resources_sim
+    dst_host: *dst
+    dst_bucket: inosatiot_resources_sim
+
+
+downsampling:
+  - src_host: *src
+    src_bucket: inosatiot_resources_sim
+    dst_host: *src
+    dst_bucket_base: inosatiot_resources_sim
+    intervals: [3m, 30m, 1d]
