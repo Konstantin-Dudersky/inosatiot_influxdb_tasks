@@ -23,5 +23,5 @@ downsampling:
   - src_host: *src
     src_bucket: inosatiot_resources_sim
     dst_host: *src
-    dst_bucket_base: inosatiot_resources_sim
+    dst_bucket: inosatiot_resources_sim
     aggwindows: [3T, 30T]

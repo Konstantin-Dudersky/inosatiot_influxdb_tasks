@@ -1,12 +1,12 @@
 import getopt
+import sys
+import time
+from datetime import datetime, timedelta
 
 import enlighten
 import pandas as pd
 import schedule
-import sys
-import time
 import yaml
-from datetime import datetime, timedelta
 from influxdb_client import InfluxDBClient, WriteOptions
 from loguru import logger
 
@@ -424,7 +424,7 @@ def task_downsampling(period: timedelta, batch: str, aggwindow: str,
 
 
 if __name__ == '__main__':
-    config = Config('../config_inosatiot_influxdb_mirror.yaml')
+    config = Config('../config_inosatiot_influxdb_tasks.yaml')
 
     opts, args = getopt.getopt(sys.argv[1:], "h", ['help', 'period=', ])
 
@@ -439,38 +439,39 @@ if __name__ == '__main__':
     for ds in config.downsampling:
 
         src_client = InfluxDBClient(
-            url=ds['src_host']['url'],
-            token=ds['src_host']['token'],
-            org=ds['src_host']['org'],
+            url=ds.src_host.url,
+            token=ds.src_host.token,
+            org=ds.src_host.org,
         )
 
         dst_client = InfluxDBClient(
-            url=ds['dst_host']['url'],
-            token=ds['dst_host']['token'],
-            org=ds['dst_host']['org'],
+            url=ds.dst_host.url,
+            token=ds.dst_host.token,
+            org=ds.dst_host.org,
         )
 
         # delete bucket
         # dst_client.buckets_api().delete_bucket(dst_client.buckets_api().find_bucket_by_name(ds['dst_bucket']))
 
-        check_bucket(dst_client, ds['dst_bucket'])
+        check_bucket(dst_client, ds.dst_bucket)
 
-        for aggwindow in ds['aggwindows']:
+        for aggwindow in ds.aggwindows:
             temp_period = pd.period_range(end=datetime.now(), periods=2, freq=aggwindow)
             total_seconds = (temp_period[1].to_timestamp() - temp_period[0].to_timestamp()).total_seconds()
 
             if total_seconds <= 60 * 60:
-                schedule.every(1).hours.at(':00').do(
+                schedule.every(1).hours.at(':05').do(
                     task_downsampling,
                     period=timedelta(hours=1), batch='1H', aggwindow=aggwindow,
-                    src_client=src_client, src_bucket=ds['src_bucket'],
-                    dst_client=dst_client, dst_bucket=ds['dst_bucket']
+                    src_client=src_client, src_bucket=ds.src_bucket,
+                    dst_client=dst_client, dst_bucket=ds.dst_bucket
                 )
+
                 schedule.every(1).days.at('00:02').do(
                     task_downsampling,
                     period=timedelta(hours=24), batch='4H', aggwindow=aggwindow,
-                    src_client=src_client, src_bucket=ds['src_bucket'],
-                    dst_client=dst_client, dst_bucket=ds['dst_bucket']
+                    src_client=src_client, src_bucket=ds.src_bucket,
+                    dst_client=dst_client, dst_bucket=ds.dst_bucket
                 )
             elif total_seconds <= 60 * 60 * 24:
                 pass
