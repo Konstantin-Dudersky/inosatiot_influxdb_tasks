@@ -1,17 +1,33 @@
-import sys
-import time
-from datetime import datetime, timedelta
+import getopt
 
 import enlighten
 import pandas as pd
 import schedule
+import sys
+import time
 import yaml
+from datetime import datetime, timedelta
 from influxdb_client import InfluxDBClient, WriteOptions
 from loguru import logger
+
+from config import Config
 
 logger.remove()
 logger.add(sys.stderr, level='INFO')
 logger.add('logs/log.txt', level='INFO', rotation='5 MB')
+
+
+def check_bucket(client: InfluxDBClient, bucket_name: str):
+    try:
+        bucket = client.buckets_api().find_bucket_by_name(bucket_name)
+    except Exception as e:
+        logger.critical(e)
+        sys.exit(1)
+
+    if bucket is None:
+        logger.warning(f"bucket {bucket_name} in host {client.url} not found")
+        bucket = client.buckets_api().create_bucket(bucket_name=bucket_name)
+        logger.success(f"bucket {bucket.name} in host {client.url} created")
 
 
 def query_count(client: InfluxDBClient, bucket: str, measurement: str, start: datetime, stop: datetime):
@@ -40,6 +56,11 @@ def query_count(client: InfluxDBClient, bucket: str, measurement: str, start: da
         return 0
     else:
         return df.loc[0, '_value']
+
+
+def pdperdiod_to_fluxperiod(period: str):
+    s = period.replace('T', 'm')
+    return s
 
 
 def mirror(period: timedelta, bsize: int = 10000):
@@ -182,14 +203,15 @@ def mirror(period: timedelta, bsize: int = 10000):
 
                 logger.debug(f'loaded dataframe: {len(df_list)}')
 
-                with client_dst.write_api(write_options=WriteOptions(
-                        batch_size=1000,
-                        flush_interval=1000,
-                        jitter_interval=0,
-                        retry_interval=5_000,
-                        max_retries=5,
-                        max_retry_delay=30_000,
-                        exponential_base=2)) as _write_client:
+                with client_dst.write_api(
+                        write_options=WriteOptions(
+                            batch_size=1000,
+                            flush_interval=1000,
+                            jitter_interval=0,
+                            retry_interval=5_000,
+                            max_retries=5,
+                            max_retry_delay=30_000,
+                            exponential_base=2)) as _write_client:
                     for df in df_list:
                         _fields = df['_field'].unique()
 
@@ -219,10 +241,243 @@ def mirror(period: timedelta, bsize: int = 10000):
         logger.success(f"mirror bucket {src_bucket} to host {dst_host_url} completed")
 
 
+def downsampling(start: datetime, stop: datetime, src_client: InfluxDBClient, src_bucket: str,
+                 dst_client: InfluxDBClient, dst_bucket: str, window: str):
+    aggfuncs = ['first', 'increase', 'max', 'mean', 'min', 'sum']
+    every = pdperdiod_to_fluxperiod(window)
+
+    for aggfunc in aggfuncs:
+
+        if aggfunc == 'first':
+            continue
+        elif aggfunc == 'increase':
+            query = f"""
+                import "strings"
+
+                from(bucket: "{src_bucket}")
+                    |> range(start: {start.isoformat()}, stop: {stop.isoformat()})
+                    |> filter(fn: (r) => strings.containsStr(v: r["aggfunc"], substr: "increase"))
+                    |> increase()
+                    |> last()
+                    |> map(fn: (r) => ({{r with
+                        aggwindow: "{window}",
+                        aggfunc: "sum" 
+                    }}))
+                    |> drop(columns: ["_time"])
+                    |> yield()
+            """
+            query = f"""
+                import "strings"
+            
+                from(bucket: "{src_bucket}")
+                    |> range(start: {start.isoformat()}, stop: {stop.isoformat()})
+                    |> filter(fn: (r) => strings.containsStr(v: r["aggfunc"], substr: "increase"))
+                    |> aggregateWindow(
+                        every: {every},
+                        fn: (column, tables=<-) => tables
+                            |> increase()
+                            |> last(),
+                        createEmpty: false)
+                    |> map(fn: (r) => ({{r with
+                        aggwindow: "{window}",
+                        aggfunc: "sum"
+                    }}))
+                    |> yield()
+            """
+        elif aggfunc == 'max':
+            query = f"""
+                import "strings"
+
+                from(bucket: "{src_bucket}")
+                    |> range(start: {start.isoformat()}, stop: {stop.isoformat()})
+                    |> filter(fn: (r) => strings.containsStr(v: r["aggfunc"], substr: "max"))
+                    |> aggregateWindow(every: {every}, fn: max, createEmpty: false)
+                    |> map(fn: (r) => ({{r with 
+                        aggwindow: "{window}",
+                        aggfunc: "max"
+                    }}))
+                    |> group(columns: ["_start", "_stop"])
+                    |> yield(name: "max")
+            """
+        elif aggfunc == 'mean':
+            query = f"""
+                import "strings"
+            
+                data = from(bucket: "{src_bucket}")
+                    |> range(start: {start.isoformat()}, stop: {stop.isoformat()})
+                    |> filter(fn: (r) => strings.containsStr(v: r["aggfunc"], substr: "mean"))
+                    |> aggregateWindow(every: {every}, fn: mean, createEmpty: false)
+                    |> map(fn: (r) => ({{r with 
+                        aggwindow: "{window}",
+                        aggfunc: "mean"
+                    }}))
+                    |> group(columns: ["_start", "_stop"])
+                    |> yield(name: "mean")
+            """
+        elif aggfunc == 'min':
+            query = f"""
+                import "strings"
+
+                data = from(bucket: "{src_bucket}")
+                    |> range(start: {start.isoformat()}, stop: {stop.isoformat()})
+                    |> filter(fn: (r) => strings.containsStr(v: r["aggfunc"], substr: "min"))
+                    |> min()
+                    |> map(fn: (r) => ({{r with 
+                        aggwindow: "{window}",
+                        aggfunc: "min"
+                    }}))
+                    |> group(columns: ["_start", "_stop"])
+                    |> drop(columns: ["_time"])
+                    |> yield(name: "min")
+            """
+
+            query = f"""
+                import "strings"
+
+                data = from(bucket: "{src_bucket}")
+                    |> range(start: {start.isoformat()}, stop: {stop.isoformat()})
+                    |> filter(fn: (r) => strings.containsStr(v: r["aggfunc"], substr: "min"))
+                    |> aggregateWindow(every: {every}, fn: min, createEmpty: false)
+                    |> map(fn: (r) => ({{r with 
+                        aggwindow: "{window}",
+                        aggfunc: "min"
+                    }}))
+                    |> group(columns: ["_start", "_stop"])
+                    |> yield(name: "min")
+            """
+        elif aggfunc == 'sum':
+            continue
+        else:
+            continue
+        df_list = src_client.query_api().query_data_frame(query)
+
+        if type(df_list) is list:
+            pass
+        else:
+            if len(df_list) == 0:
+                return
+            df_list = [df_list]
+
+        logger.debug(f'loaded dataframe: {len(df_list)}')
+
+        with dst_client.write_api(
+                write_options=WriteOptions(
+                    batch_size=1000,
+                    flush_interval=1000,
+                    jitter_interval=0,
+                    retry_interval=5_000,
+                    max_retries=5,
+                    max_retry_delay=30_000,
+                    exponential_base=2)) as _write_client:
+
+            for df in df_list:
+                _meass = df['_measurement'].unique()
+                _fields = df['_field'].unique()
+
+                tags = []
+                for col in df.columns:
+                    if col not in _fields:
+                        tags.append(col)
+
+                datatype = df.loc[0, 'datatype']
+                df['_value'] = df['_value'].astype(datatype)
+
+                for _meas in _meass:
+                    df_meas = df[df['_measurement'] == _meas]
+
+                    for _field in _fields:
+                        df_field = df_meas[df_meas['_field'] == _field]
+                        df_field = df_field.rename(columns={'_value': _field})
+                        df_field = df_field.drop(
+                            columns=['_start', '_stop', 'result', 'table', '_measurement', '_field', ])
+                        df_field = df_field.set_index("_time")
+
+                        _write_client.write(
+                            bucket=dst_bucket,
+                            record=df_field,
+                            data_frame_measurement_name=_meas,
+                            data_frame_tag_columns=tags)
+
+        logger.trace(f'downsample for {aggfunc} complete')
+
+
+def task_downsampling(period: timedelta, batch: str, aggwindow: str,
+                      src_client: InfluxDBClient, src_bucket: str,
+                      dst_client: InfluxDBClient, dst_bucket: str):
+    stop = datetime.now().astimezone()
+    start = stop - period
+
+    idx = pd.period_range(
+        start=pd.to_datetime(start).floor(freq=aggwindow),
+        end=pd.to_datetime(stop).floor(freq=aggwindow),
+        freq=batch)
+
+    print(idx)
+
+    t = time.perf_counter()
+    for i in range(len(idx) - 1):
+        start = idx[i].to_timestamp().tz_localize('Europe/Minsk')
+        stop = idx[i + 1].to_timestamp().tz_localize('Europe/Minsk')
+        downsampling(start=start, stop=stop, src_client=src_client, src_bucket=src_bucket,
+                     dst_client=dst_client, dst_bucket=dst_bucket, window=aggwindow)
+    print(time.perf_counter() - t)
+
+
 if __name__ == '__main__':
-    schedule.every(5).minutes.do(mirror, period=timedelta(minutes=10), bsize=10000)
-    schedule.every(1).hours.at(':00').do(mirror, period=timedelta(days=2), bsize=10000)
-    schedule.every(1).days.at('00:05').do(mirror, period=timedelta(days=60), bsize=10000)
+    config = Config('../config_inosatiot_influxdb_mirror.yaml')
+
+    opts, args = getopt.getopt(sys.argv[1:], "h", ['help', 'period=', ])
+
+    # for opt, arg in opts:
+    #
+    #     if opt in ['-h', '--help']:
+    #         print(f"""
+    #         """)
+    #         sys.exit()
+    #     elif opt == '--period':
+
+    for ds in config.downsampling:
+
+        src_client = InfluxDBClient(
+            url=ds['src_host']['url'],
+            token=ds['src_host']['token'],
+            org=ds['src_host']['org'],
+        )
+
+        dst_client = InfluxDBClient(
+            url=ds['dst_host']['url'],
+            token=ds['dst_host']['token'],
+            org=ds['dst_host']['org'],
+        )
+
+        # delete bucket
+        # dst_client.buckets_api().delete_bucket(dst_client.buckets_api().find_bucket_by_name(ds['dst_bucket']))
+
+        check_bucket(dst_client, ds['dst_bucket'])
+
+        for aggwindow in ds['aggwindows']:
+            temp_period = pd.period_range(end=datetime.now(), periods=2, freq=aggwindow)
+            total_seconds = (temp_period[1].to_timestamp() - temp_period[0].to_timestamp()).total_seconds()
+
+            if total_seconds <= 60 * 60:
+                schedule.every(1).hours.at(':00').do(
+                    task_downsampling,
+                    period=timedelta(hours=1), batch='1H', aggwindow=aggwindow,
+                    src_client=src_client, src_bucket=ds['src_bucket'],
+                    dst_client=dst_client, dst_bucket=ds['dst_bucket']
+                )
+                schedule.every(1).days.at('00:02').do(
+                    task_downsampling,
+                    period=timedelta(hours=24), batch='4H', aggwindow=aggwindow,
+                    src_client=src_client, src_bucket=ds['src_bucket'],
+                    dst_client=dst_client, dst_bucket=ds['dst_bucket']
+                )
+            elif total_seconds <= 60 * 60 * 24:
+                pass
+
+    # schedule.every(5).minutes.do(mirror, period=timedelta(minutes=10), bsize=10000)
+    # schedule.every(1).hours.at(':00').do(mirror, period=timedelta(days=2), bsize=10000)
+    # schedule.every(1).days.at('00:05').do(mirror, period=timedelta(days=60), bsize=10000)
 
     while True:
         schedule.run_all(delay_seconds=10)

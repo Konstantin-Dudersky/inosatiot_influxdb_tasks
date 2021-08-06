@@ -2,4 +2,4 @@
 
 echo
 echo "-----> Create requirements.txt:"
-pip freeze >setup/requirements.txt
+venv/bin/pip3 freeze >setup/requirements.txt

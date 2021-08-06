@@ -23,13 +23,13 @@ python3.9 -m pip install -r setup/requirements.txt
 echo
 echo "-----> Create systemd service:"
 python3.9 setup/create_systemd_service.py
-sudo mv setup/inosatiot_influxdb_mirror.service /etc/systemd/system
+sudo mv setup/inosatiot_influxdb_tasks.service /etc/systemd/system
 sudo systemctl daemon-reload
-sudo systemctl enable inosatiot_influxdb_mirror.service
+sudo systemctl enable inosatiot_influxdb_tasks.service
 
 echo
 echo "-----> Start:"
-sudo systemctl start inosatiot_influxdb_mirror.service
+sudo systemctl start inosatiot_influxdb_tasks.service
 
 echo
 echo "-----> Finish!"

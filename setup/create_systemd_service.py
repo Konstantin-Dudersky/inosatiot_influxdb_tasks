@@ -17,7 +17,7 @@ ExecStart={path}/venv/bin/python3 {path}/main.py
 [Install]
 WantedBy=multi-user.target"""
 
-f = open("setup/inosatiot_influxdb_mirror.service", "w")
+f = open("setup/inosatiot_influxdb_tasks.service", "w")
 f.write(service)
 f.close()
 

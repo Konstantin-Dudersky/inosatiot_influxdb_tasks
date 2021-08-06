@@ -1,5 +1,5 @@
 # после изменения насроек, в консоли:
-# sudo systemctl restart inosatiot_influxdb_mirror.service
+# sudo systemctl restart inosatiot_influxdb_tasks.service
 
 hosts:
   - &src
@@ -24,4 +24,4 @@ downsampling:
     src_bucket: inosatiot_resources_sim
     dst_host: *src
     dst_bucket_base: inosatiot_resources_sim
-    intervals: [3m, 30m, 1d]
+    aggwindows: [3T, 30T]
