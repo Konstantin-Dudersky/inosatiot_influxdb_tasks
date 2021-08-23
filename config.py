@@ -27,7 +27,7 @@ class Config:
             self._downsampling.append(
                 DownsamplingItem(
                     Host(ds['src_host']['url'], ds['src_host']['token'], ds['src_host']['org']), ds['src_bucket'],
-                    Host(ds['dst_host']['url'], ds['dst_host']['token'], ds['dst_host']['org']), ds['src_bucket'],
+                    Host(ds['dst_host']['url'], ds['dst_host']['token'], ds['dst_host']['org']), ds['dst_bucket'],
                     ds['aggwindows'])
             )
 

@@ -460,14 +460,14 @@ if __name__ == '__main__':
             total_seconds = (temp_period[1].to_timestamp() - temp_period[0].to_timestamp()).total_seconds()
 
             if total_seconds <= 60 * 60:
-                schedule.every(1).hours.at(':05').do(
+                schedule.every(1).hours.at(':00').do(
                     task_downsampling,
                     period=timedelta(hours=1), batch='1H', aggwindow=aggwindow,
                     src_client=src_client, src_bucket=ds.src_bucket,
                     dst_client=dst_client, dst_bucket=ds.dst_bucket
                 )
 
-                schedule.every(1).days.at('00:02').do(
+                schedule.every(1).days.at('00:01').do(
                     task_downsampling,
                     period=timedelta(hours=24), batch='4H', aggwindow=aggwindow,
                     src_client=src_client, src_bucket=ds.src_bucket,
@@ -481,7 +481,7 @@ if __name__ == '__main__':
     # schedule.every(1).days.at('00:05').do(mirror, period=timedelta(days=60), bsize=10000)
 
     while True:
-        schedule.run_all(delay_seconds=10)
+        # schedule.run_all(delay_seconds=10)
         schedule.run_pending()
         time.sleep(1)
 

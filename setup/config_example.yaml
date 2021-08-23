@@ -1,27 +1,36 @@
 # после изменения насроек, в консоли:
-# sudo systemctl restart inosatiot_influxdb_tasks.service
+# sudo systemctl restart inosatiot_influxdb_mirror.service
+
 
 hosts:
   - &src
     url: http://localhost:8086
-    org: _org_
+    org: inosat
     token: _token_
   - &dst
     url: http://192.168.100.74:8086
-    org: _org_
+    org: inosat
+    token: _token_
+  - &iot2050
+    url: http://192.168.100.50:8086
+    org: Inosat
     token: _token_
 
 
 mirroring:
   - src_host: *src
     src_bucket: inosatiot_resources_sim
-    dst_host: *dst
-    dst_bucket: inosatiot_resources_sim
+    dst_host: *src
+    dst_bucket: inosatiot_resources_sim_mirror
 
 
+# intervals
+# минуты должны делить час нацело; можно 3T, 5T, 30T; нельзя 7T, 40T
+# часы должны дельть сутки нацело; можно 1H, 8H, 12H; нельзя 5H, 11H
+# https://pandas.pydata.org/pandas-docs/stable/user_guide/timeseries.html#offset-aliases
 downsampling:
   - src_host: *src
-    src_bucket: inosatiot_resources_sim
+    src_bucket: inosatiot_resources_sim_raw
     dst_host: *src
     dst_bucket: inosatiot_resources_sim
     aggwindows: [3T, 30T]
