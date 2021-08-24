@@ -4,10 +4,10 @@ echo
 echo "-----> Python version:"
 python3.9 -V
 
-#echo
-#echo "-----> Updating system:"
-#sudo apt update
-#sudo apt -y upgrade
+echo
+echo "-----> Updating system:"
+sudo apt update
+sudo apt -y upgrade
 
 echo
 echo "-----> Install python base packages:"
@@ -22,7 +22,7 @@ python3.9 -m pip install -r setup/requirements.txt
 
 echo
 echo "-----> Create systemd service:"
-python3.9 setup/create_systemd_service.py
+python3.9 setup/lib/create_systemd_service.py
 sudo mv setup/inosatiot_influxdb_tasks.service /etc/systemd/system
 sudo systemctl daemon-reload
 sudo systemctl enable inosatiot_influxdb_tasks.service

@@ -59,7 +59,7 @@ def query_count(client: InfluxDBClient, bucket: str, measurement: str, start: da
 
 
 def pdperdiod_to_fluxperiod(period: str):
-    s = period.replace('T', 'm')
+    s = period.replace('T', 'm').replace('D', 'd')
     return s
 
 
@@ -253,31 +253,18 @@ def downsampling(start: datetime, stop: datetime, src_client: InfluxDBClient, sr
         elif aggfunc == 'increase':
             query = f"""
                 import "strings"
-
-                from(bucket: "{src_bucket}")
-                    |> range(start: {start.isoformat()}, stop: {stop.isoformat()})
-                    |> filter(fn: (r) => strings.containsStr(v: r["aggfunc"], substr: "increase"))
-                    |> increase()
-                    |> last()
-                    |> map(fn: (r) => ({{r with
-                        aggwindow: "{window}",
-                        aggfunc: "sum" 
-                    }}))
-                    |> drop(columns: ["_time"])
-                    |> yield()
-            """
-            query = f"""
-                import "strings"
             
                 from(bucket: "{src_bucket}")
                     |> range(start: {start.isoformat()}, stop: {stop.isoformat()})
                     |> filter(fn: (r) => strings.containsStr(v: r["aggfunc"], substr: "increase"))
+                    |> timeShift(duration: 3h)
                     |> aggregateWindow(
                         every: {every},
                         fn: (column, tables=<-) => tables
                             |> increase()
                             |> last(),
                         createEmpty: false)
+                    |> timeShift(duration: -3h)
                     |> map(fn: (r) => ({{r with
                         aggwindow: "{window}",
                         aggfunc: "sum"
@@ -291,7 +278,9 @@ def downsampling(start: datetime, stop: datetime, src_client: InfluxDBClient, sr
                 from(bucket: "{src_bucket}")
                     |> range(start: {start.isoformat()}, stop: {stop.isoformat()})
                     |> filter(fn: (r) => strings.containsStr(v: r["aggfunc"], substr: "max"))
+                    |> timeShift(duration: 3h)
                     |> aggregateWindow(every: {every}, fn: max, createEmpty: false)
+                    |> timeShift(duration: -3h)
                     |> map(fn: (r) => ({{r with 
                         aggwindow: "{window}",
                         aggfunc: "max"
@@ -306,7 +295,9 @@ def downsampling(start: datetime, stop: datetime, src_client: InfluxDBClient, sr
                 data = from(bucket: "{src_bucket}")
                     |> range(start: {start.isoformat()}, stop: {stop.isoformat()})
                     |> filter(fn: (r) => strings.containsStr(v: r["aggfunc"], substr: "mean"))
+                    |> timeShift(duration: 3h)
                     |> aggregateWindow(every: {every}, fn: mean, createEmpty: false)
+                    |> timeShift(duration: -3h)
                     |> map(fn: (r) => ({{r with 
                         aggwindow: "{window}",
                         aggfunc: "mean"
@@ -321,23 +312,9 @@ def downsampling(start: datetime, stop: datetime, src_client: InfluxDBClient, sr
                 data = from(bucket: "{src_bucket}")
                     |> range(start: {start.isoformat()}, stop: {stop.isoformat()})
                     |> filter(fn: (r) => strings.containsStr(v: r["aggfunc"], substr: "min"))
-                    |> min()
-                    |> map(fn: (r) => ({{r with 
-                        aggwindow: "{window}",
-                        aggfunc: "min"
-                    }}))
-                    |> group(columns: ["_start", "_stop"])
-                    |> drop(columns: ["_time"])
-                    |> yield(name: "min")
-            """
-
-            query = f"""
-                import "strings"
-
-                data = from(bucket: "{src_bucket}")
-                    |> range(start: {start.isoformat()}, stop: {stop.isoformat()})
-                    |> filter(fn: (r) => strings.containsStr(v: r["aggfunc"], substr: "min"))
+                    |> timeShift(duration: 3h)
                     |> aggregateWindow(every: {every}, fn: min, createEmpty: false)
+                    |> timeShift(duration: -3h)
                     |> map(fn: (r) => ({{r with 
                         aggwindow: "{window}",
                         aggfunc: "min"
@@ -524,24 +501,33 @@ examples:
                         task_downsampling,
                         period=timedelta(hours=1), batch='1H', aggwindow=aggwindow,
                         src_client=src_client, src_bucket=ds.src_bucket,
-                        dst_client=dst_client, dst_bucket=ds.dst_bucket
+                        dst_client=dst_client, dst_bucket=ds.dst_bucket,
                     )
 
                     schedule.every(1).days.at('00:01').do(
                         task_downsampling,
                         period=timedelta(hours=24), batch='4H', aggwindow=aggwindow,
                         src_client=src_client, src_bucket=ds.src_bucket,
-                        dst_client=dst_client, dst_bucket=ds.dst_bucket
+                        dst_client=dst_client, dst_bucket=ds.dst_bucket,
                     )
                 elif total_seconds <= 60 * 60 * 24:
                     pass
             elif mode == 'man':
                 if total_seconds <= 60 * 60:
+                    # до 1 часа
                     schedule.every(1).hours.at(':00').do(
                         task_downsampling,
-                        period=stop - start, batch='8H', aggwindow=aggwindow,
+                        period=stop - start, batch='1D', aggwindow=aggwindow,
                         src_client=src_client, src_bucket=ds.src_bucket,
-                        dst_client=dst_client, dst_bucket=ds.dst_bucket
+                        dst_client=dst_client, dst_bucket=ds.dst_bucket,
+                    )
+                elif total_seconds <= 60 * 60 * 24 * 7:
+                    # до 1 недели
+                    schedule.every(1).hours.at(':00').do(
+                        task_downsampling,
+                        period=stop - start, batch='1D', aggwindow=aggwindow,
+                        src_client=src_client, src_bucket=ds.src_bucket,
+                        dst_client=dst_client, dst_bucket=ds.dst_bucket,
                     )
 
     if mode == 'rt':
@@ -553,8 +539,6 @@ examples:
         logger.info(f"Start manual downsampling")
 
         schedule.run_all(delay_seconds=10)
-
-# TODO - предусмотреть возможость запуска из командной строки для ручной синхронизации заданного промежутка времени
 
 
 # schedule.every(5).minutes.do(mirror, period=timedelta(minutes=10), bsize=10000)
