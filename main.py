@@ -412,29 +412,88 @@ def task_downsampling(period: timedelta, batch: str, aggwindow: str,
         end=pd.to_datetime(stop).floor(freq=aggwindow),
         freq=batch)
 
-    print(idx)
-
     t = time.perf_counter()
     for i in range(len(idx) - 1):
         start = idx[i].to_timestamp().tz_localize('Europe/Minsk')
         stop = idx[i + 1].to_timestamp().tz_localize('Europe/Minsk')
         downsampling(start=start, stop=stop, src_client=src_client, src_bucket=src_bucket,
                      dst_client=dst_client, dst_bucket=dst_bucket, window=aggwindow)
-    print(time.perf_counter() - t)
+
+    logger.info(
+        f"Downsampling task completed; start: {start.isoformat()}, stop: {stop.isoformat()}, aggwindow: {aggwindow}")
+    logger.info(f"Time elapsed: {time.perf_counter() - t}s")
 
 
 if __name__ == '__main__':
+    opts, args = getopt.getopt(sys.argv[1:], "hm:b:", ['help', 'mode=', 'start=', 'stop=', ])
+
+    mode = None
+    start = None
+    stop = None
+
+    for opt, arg in opts:
+
+        if opt in ['-h', '--help']:
+            print(f"""
+Tasks for influxdb
+
+arguments:
+    -h, --help : show help
+    --mode (required) : mode
+        rt - cyclical execute in real-time
+        man - manual process data (--start, --stop)
+    --start <datetime in isoformat> (required for man mode):
+        start timestamp
+    --stop <datetime in isoformat> (optional for man mode):
+        stop timestamp. If not specified, the current time is used.
+
+examples:
+    venv/bin/python3 main.py --mode rt
+    venv/bin/python3 main.py --mode man --start 2021-01-01T00:00:00+03:00
+    venv/bin/python3 main.py --mode man --start 2021-01-01T00:00:00+03:00 --stop 2022-01-01T00:00:00+03:00
+""")
+            sys.exit()
+        elif opt == '--mode':
+            if arg in ['rt', 'man']:
+                mode = arg
+
+        elif opt == '--start':
+            try:
+                start = datetime.fromisoformat(arg)
+            except ValueError as ve:
+                print(f'Invalid --start value:\n{ve}')
+                sys.exit()
+
+        elif opt == '--stop':
+            try:
+                stop = datetime.fromisoformat(arg)
+            except ValueError as ve:
+                print(f'Invalid --stop value:\n{ve}')
+                sys.exit()
+
+    if mode is None:
+        print(f"Invalid --mode value, see --help")
+        sys.exit()
+    elif mode == 'rt':
+        print('Start rt mode, press CTRL-C for exit')
+    elif mode == 'man':
+        if start is None:
+            print(f"Value --start required for man mode, exit")
+            sys.exit(1)
+        if stop is None:
+            stop = datetime.now().astimezone()
+
+        if start.tzname() is None:
+            local_tz = datetime.now().astimezone().tzinfo
+            start = start.astimezone(local_tz)
+
+        if stop.tzname() is None:
+            local_tz = datetime.now().astimezone().tzinfo
+            stop = stop.astimezone(local_tz)
+
+        print(f"Start man mode, start:{start.isoformat()}, stop:{stop.isoformat()}")
+
     config = Config('../config_inosatiot_influxdb_tasks.yaml')
-
-    opts, args = getopt.getopt(sys.argv[1:], "h", ['help', 'period=', ])
-
-    # for opt, arg in opts:
-    #
-    #     if opt in ['-h', '--help']:
-    #         print(f"""
-    #         """)
-    #         sys.exit()
-    #     elif opt == '--period':
 
     for ds in config.downsampling:
 
@@ -459,30 +518,45 @@ if __name__ == '__main__':
             temp_period = pd.period_range(end=datetime.now(), periods=2, freq=aggwindow)
             total_seconds = (temp_period[1].to_timestamp() - temp_period[0].to_timestamp()).total_seconds()
 
-            if total_seconds <= 60 * 60:
-                schedule.every(1).hours.at(':00').do(
-                    task_downsampling,
-                    period=timedelta(hours=1), batch='1H', aggwindow=aggwindow,
-                    src_client=src_client, src_bucket=ds.src_bucket,
-                    dst_client=dst_client, dst_bucket=ds.dst_bucket
-                )
+            if mode == 'rt':
+                if total_seconds <= 60 * 60:
+                    schedule.every(1).hours.at(':00').do(
+                        task_downsampling,
+                        period=timedelta(hours=1), batch='1H', aggwindow=aggwindow,
+                        src_client=src_client, src_bucket=ds.src_bucket,
+                        dst_client=dst_client, dst_bucket=ds.dst_bucket
+                    )
 
-                schedule.every(1).days.at('00:01').do(
-                    task_downsampling,
-                    period=timedelta(hours=24), batch='4H', aggwindow=aggwindow,
-                    src_client=src_client, src_bucket=ds.src_bucket,
-                    dst_client=dst_client, dst_bucket=ds.dst_bucket
-                )
-            elif total_seconds <= 60 * 60 * 24:
-                pass
+                    schedule.every(1).days.at('00:01').do(
+                        task_downsampling,
+                        period=timedelta(hours=24), batch='4H', aggwindow=aggwindow,
+                        src_client=src_client, src_bucket=ds.src_bucket,
+                        dst_client=dst_client, dst_bucket=ds.dst_bucket
+                    )
+                elif total_seconds <= 60 * 60 * 24:
+                    pass
+            elif mode == 'man':
+                if total_seconds <= 60 * 60:
+                    schedule.every(1).hours.at(':00').do(
+                        task_downsampling,
+                        period=stop - start, batch='8H', aggwindow=aggwindow,
+                        src_client=src_client, src_bucket=ds.src_bucket,
+                        dst_client=dst_client, dst_bucket=ds.dst_bucket
+                    )
 
-    # schedule.every(5).minutes.do(mirror, period=timedelta(minutes=10), bsize=10000)
-    # schedule.every(1).hours.at(':00').do(mirror, period=timedelta(days=2), bsize=10000)
-    # schedule.every(1).days.at('00:05').do(mirror, period=timedelta(days=60), bsize=10000)
+    if mode == 'rt':
+        while True:
+            # schedule.run_all(delay_seconds=10)
+            schedule.run_pending()
+            time.sleep(1)
+    elif mode == 'man':
+        logger.info(f"Start manual downsampling")
 
-    while True:
-        # schedule.run_all(delay_seconds=10)
-        schedule.run_pending()
-        time.sleep(1)
+        schedule.run_all(delay_seconds=10)
 
 # TODO - предусмотреть возможость запуска из командной строки для ручной синхронизации заданного промежутка времени
+
+
+# schedule.every(5).minutes.do(mirror, period=timedelta(minutes=10), bsize=10000)
+# schedule.every(1).hours.at(':00').do(mirror, period=timedelta(days=2), bsize=10000)
+# schedule.every(1).days.at('00:05').do(mirror, period=timedelta(days=60), bsize=10000)

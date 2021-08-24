@@ -13,7 +13,7 @@ User={getpass.getuser()}
 Group={getpass.getuser()}
 EnvironmentFile=/etc/environment
 WorkingDirectory={path}
-ExecStart={path}/venv/bin/python3 {path}/main.py
+ExecStart={path}/venv/bin/python3 {path}/main.py --mode rt
 [Install]
 WantedBy=multi-user.target"""
 

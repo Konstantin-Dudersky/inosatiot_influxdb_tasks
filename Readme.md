@@ -7,12 +7,12 @@
    
         $ mkdir ~/inosatiot && cd ~/inosatiot && sudo apt install git
         $ cd ~/inosatiot
-        $ git clone https://github.com/Konstantin-Dudersky/inosatiot_influxdb_mirror.git
-        $ cd inosatiot_influxdb_mirror
+        $ git clone https://github.com/Konstantin-Dudersky/inosatiot_influxdb_tasks.git
+        $ cd inosatiot_influxdb_tasks
 
-2. Создать файл с настройками config_inosatiot_influxdb_mirror.yaml. Шаблон находится в setup/config_example.yaml
+2. Создать файл с настройками config_inosatiot_influxdb_tasks.yaml. Шаблон находится в setup/config_example.yaml
        
-        $ cp setup/config_example.yaml ../config_inosatiot_influxdb_mirror.yaml
+        $ cp setup/config_example.yaml ../config_inosatiot_influxdb_tasks.yaml
 
    Прописать в файле настройки.
 
@@ -30,16 +30,16 @@
     
 4. После установки можно запустить на выполнение через systemd
    
-        $ sudo systemctl start inosatiot_influxdb_mirror.service  // запустить
-        $ sudo systemctl stop inosatiot_influxdb_mirror.service  // остановить
-        $ sudo systemctl restart inosatiot_influxdb_mirror.service  // перезапустить
-        $ sudo systemctl status inosatiot_influxdb_mirror.service  // просмотреть статус
+        $ sudo systemctl start inosatiot_influxdb_tasks.service  // запустить
+        $ sudo systemctl stop inosatiot_influxdb_tasks.service  // остановить
+        $ sudo systemctl restart inosatiot_influxdb_tasks.service  // перезапустить
+        $ sudo systemctl status inosatiot_influxdb_tasks.service  // просмотреть статус
 
 # Обновить проект
 - Синхронизировать проект с github (локальные изменения теряются)
    
-        $ sudo systemctl stop inosatiot_influxdb_mirror.service
-        $ cd ~/inosatiot/inosatiot_influxdb_mirror/
+        $ sudo systemctl stop inosatiot_influxdb_tasks.service
+        $ cd ~/inosatiot/inosatiot_influxdb_tasks/
         $ git fetch origin && git reset --hard origin/master && git clean -f -d
         $ chmod +x setup/setup.sh && setup/setup.sh
 
