@@ -497,6 +497,7 @@ examples:
 
             if mode == 'rt':
                 if total_seconds <= 60 * 60:
+                    # до 1 часа
                     schedule.every(1).hours.at(':00').do(
                         task_downsampling,
                         period=timedelta(hours=1), batch='1H', aggwindow=aggwindow,
@@ -510,8 +511,22 @@ examples:
                         src_client=src_client, src_bucket=ds.src_bucket,
                         dst_client=dst_client, dst_bucket=ds.dst_bucket,
                     )
-                elif total_seconds <= 60 * 60 * 24:
-                    pass
+                elif total_seconds <= 60 * 60 * 24 * 7:
+                    # до 1 недели
+                    schedule.every(1).days.at('00:02').do(
+                        task_downsampling,
+                        period=timedelta(days=1), batch='1D', aggwindow=aggwindow,
+                        src_client=src_client, src_bucket=ds.src_bucket,
+                        dst_client=dst_client, dst_bucket=ds.dst_bucket,
+                    )
+
+                    schedule.every(1).weeks.at('00:02').do(
+                        task_downsampling,
+                        period=timedelta(weeks=1), batch='1D', aggwindow=aggwindow,
+                        src_client=src_client, src_bucket=ds.src_bucket,
+                        dst_client=dst_client, dst_bucket=ds.dst_bucket,
+                    )
+
             elif mode == 'man':
                 if total_seconds <= 60 * 60:
                     # до 1 часа
@@ -532,7 +547,6 @@ examples:
 
     if mode == 'rt':
         while True:
-            # schedule.run_all(delay_seconds=10)
             schedule.run_pending()
             time.sleep(1)
     elif mode == 'man':

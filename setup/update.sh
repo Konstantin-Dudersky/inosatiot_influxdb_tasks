@@ -7,10 +7,6 @@ echo "-----> Stop service:"
 sudo systemctl stop inosatiot_influxdb_tasks.service
 
 echo
-echo "-----> Go to directory:"
-cd ~/inosatiot/inosatiot_influxdb_tasks/ || exit
-
-echo
 echo "-----> Fetch from git:"
 git fetch origin && git reset --hard origin/master && git clean -f -d
 
