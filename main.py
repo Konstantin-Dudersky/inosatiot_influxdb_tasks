@@ -389,12 +389,19 @@ def task_downsampling(period: timedelta, batch: str, aggwindow: str,
         end=pd.to_datetime(stop).floor(freq=aggwindow),
         freq=batch)
 
+    progress_bar = enlighten.Counter(
+        total=len(idx) - 1,
+        desc=f"{period} | {aggwindow} |",
+        unit='chunks')
+    progress_bar.update(0)
+
     t = time.perf_counter()
     for i in range(len(idx) - 1):
         start = idx[i].to_timestamp().tz_localize('Europe/Minsk')
         stop = idx[i + 1].to_timestamp().tz_localize('Europe/Minsk')
         downsampling(start=start, stop=stop, src_client=src_client, src_bucket=src_bucket,
                      dst_client=dst_client, dst_bucket=dst_bucket, window=aggwindow)
+        progress_bar.update(1)
 
     logger.info(
         f"Downsampling task completed; start: {start.isoformat()}, stop: {stop.isoformat()}, aggwindow: {aggwindow}")
@@ -532,7 +539,7 @@ examples:
                     # до 1 часа
                     schedule.every(1).hours.at(':00').do(
                         task_downsampling,
-                        period=stop - start, batch='1D', aggwindow=aggwindow,
+                        period=stop - start, batch='2H', aggwindow=aggwindow,
                         src_client=src_client, src_bucket=ds.src_bucket,
                         dst_client=dst_client, dst_bucket=ds.dst_bucket,
                     )
