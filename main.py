@@ -8,6 +8,7 @@ import pandas as pd
 import schedule
 import yaml
 from influxdb_client import InfluxDBClient, WriteOptions
+from influxdb_client.client.write_api import ASYNCHRONOUS
 from loguru import logger
 
 from config import Config
@@ -338,14 +339,16 @@ def downsampling(start: datetime, stop: datetime, src_client: InfluxDBClient, sr
         logger.debug(f'loaded dataframe: {len(df_list)}')
 
         with dst_client.write_api(
-                write_options=WriteOptions(
-                    batch_size=1000,
-                    flush_interval=1000,
-                    jitter_interval=0,
-                    retry_interval=5_000,
-                    max_retries=5,
-                    max_retry_delay=30_000,
-                    exponential_base=2)) as _write_client:
+                # write_options=WriteOptions(
+                #     batch_size=1000,
+                #     flush_interval=1000,
+                #     jitter_interval=0,
+                #     retry_interval=5_000,
+                #     max_retries=5,
+                #     max_retry_delay=30_000,
+                #     exponential_base=2),
+                write_options=ASYNCHRONOUS
+        ) as _write_client:
 
             for df in df_list:
                 _meass = df['_measurement'].unique()
